@@ -1,0 +1,31 @@
+import type { Application } from './types'
+
+export const mockApplications: Application[] = [
+  {
+    id: 'app-001',
+    title: 'Frontend Engineer',
+    company: 'Nimbus Labs',
+    status: 'submitted',
+    appliedDate: '2026-04-22',
+    result: 'pending',
+    notes: 'Referred by a former coworker; waiting on recruiter follow-up.',
+  },
+  {
+    id: 'app-002',
+    title: 'Product Designer',
+    company: 'Maple Systems',
+    status: 'interview',
+    appliedDate: '2026-04-18',
+    result: 'pending',
+    notes: 'Phone screen passed; design exercise scheduled for next week.',
+  },
+  {
+    id: 'app-003',
+    title: 'Data Analyst',
+    company: 'Aster Digital',
+    status: 'offer',
+    appliedDate: '2026-04-10',
+    result: 'accepted',
+    notes: 'Received verbal offer; reviewing compensation details.',
+  },
+]
