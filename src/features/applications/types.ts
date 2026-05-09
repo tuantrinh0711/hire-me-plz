@@ -4,6 +4,9 @@ export const APPLICATION_SCHEMA = {
   company: 'string',
   status: 'string',
   appliedDate: 'string',
+  tags: 'string',
+  cvVersion: 'string',
+  deadline: 'string',
   result: 'string',
   notes: 'string',
 }
@@ -28,6 +31,9 @@ export type Application = {
   company: string
   status: typeof APPLICATION_STATUSES[number]
   appliedDate: string
+  tags: string
+  cvVersion: string
+  deadline: string
   result: typeof APPLICATION_RESULTS[number]
   notes: string
 }
