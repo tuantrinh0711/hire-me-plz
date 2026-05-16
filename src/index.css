@@ -247,6 +247,17 @@ button:disabled {
   opacity: 0.45;
 }
 
+@media (max-width: 640px) {
+  .input-control,
+  .menu-item {
+    padding: 0.85rem 0.95rem;
+  }
+
+  .input-control {
+    font-size: 0.95rem;
+  }
+}
+
 @media (max-width: 768px) {
   .sketch-card {
     border-radius: 2rem;

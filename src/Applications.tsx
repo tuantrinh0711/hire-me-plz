@@ -41,19 +41,144 @@ const defaultFormState: Application = {
   notes: '',
 }
 
+interface TarotCard {
+  id: number
+  title: string
+  meaning: string
+  shouldApply: 'yes' | 'strong-yes' | 'maybe' | 'apply-lightly' | 'yes-but' | 'no' | 'absolutely-yes'
+  applyEmoji: string
+  applyText: string
+  quote: string
+  occurrence: number
+  imageUrl?: string
+}
+
+const TAROT_CARDS: TarotCard[] = [
+  {
+    id: 1,
+    title: 'The Endless Apply',
+    meaning: 'You may feel tired from sending applications without replies, but this card says: momentum matters more than results today.',
+    shouldApply: 'strong-yes',
+    applyEmoji: '✅',
+    applyText: 'Yes — especially to jobs you normally hesitate to apply for.',
+    quote: 'Your next application may reach the right recruiter at the right time.',
+    occurrence: 18,
+    imageUrl: '/tarot-cards/endless-apply.png',
+  },
+  {
+    id: 2,
+    title: 'The Recruiter\'s Eye',
+    meaning: 'Your profile is more visible than you think. Someone is likely noticing your portfolio, GitHub, or CV soon.',
+    shouldApply: 'strong-yes',
+    applyEmoji: '✅',
+    applyText: 'Strong Yes — prioritize quality applications today.',
+    quote: 'One thoughtful application beats twenty rushed ones.',
+    occurrence: 18,
+    imageUrl: '/tarot-cards/recruiters-eye.png',
+  },
+  {
+    id: 3,
+    title: 'The Ghosted Email',
+    meaning: 'Silence does not equal failure. Delays, hiring freezes, and internal issues may have nothing to do with your skill.',
+    shouldApply: 'maybe',
+    applyEmoji: '⚠️',
+    applyText: 'Maybe — focus on improving your CV or portfolio first.',
+    quote: 'Being ignored is temporary. Skills remain permanent.',
+    occurrence: 10,
+    imageUrl: '/tarot-cards/ghosted-email.png',
+  },
+  {
+    id: 4,
+    title: 'The Portfolio Forge',
+    meaning: 'Today favors creation over application. Building one strong project can attract future opportunities.',
+    shouldApply: 'apply-lightly',
+    applyEmoji: '⚠️',
+    applyText: 'Apply lightly — spend more time building.',
+    quote: 'Projects speak louder than certificates.',
+    occurrence: 10,
+    imageUrl: '/tarot-cards/portfolio-forge.png',
+  },
+  {
+    id: 5,
+    title: 'The Lucky Referral',
+    meaning: 'An opportunity may come through friends, classmates, Discord groups, or LinkedIn rather than cold applying.',
+    shouldApply: 'yes-but',
+    applyEmoji: '✅',
+    applyText: 'Yes — but network first.',
+    quote: 'One connection can change your entire career path.',
+    occurrence: 16,
+    imageUrl: '/tarot-cards/lucky-referral.png',
+  },
+  {
+    id: 6,
+    title: 'The Burnout Moon',
+    meaning: 'Your energy is low. Applying emotionally exhausted may create low-quality applications.',
+    shouldApply: 'no',
+    applyEmoji: '❌',
+    applyText: 'Rest, reorganize, and recover first.',
+    quote: 'Rest is productive when it protects your future.',
+    occurrence: 5,
+    imageUrl: '/tarot-cards/burnout-moon.png',
+  },
+  {
+    id: 7,
+    title: 'The Offer Sun',
+    meaning: 'A breakthrough card. Interviews, callbacks, or unexpected opportunities may appear soon.',
+    shouldApply: 'absolutely-yes',
+    applyEmoji: '✅',
+    applyText: 'Absolutely Yes — your confidence is aligned.',
+    quote: 'You are closer than you think.',
+    occurrence: 15,
+    imageUrl: '/tarot-cards/offer-sun.png',
+  },
+]
+
+const selectRandomTarotCard = (): TarotCard => {
+  const totalOccurrence = TAROT_CARDS.reduce((sum, card) => sum + card.occurrence, 0)
+  let random = Math.random() * totalOccurrence
+  for (const card of TAROT_CARDS) {
+    random -= card.occurrence
+    if (random <= 0) return card
+  }
+  return TAROT_CARDS[0]
+}
+
+const renderTagBadges = (tags: string) => {
+  const values = tags
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+
+  if (values.length === 0) {
+    return <>—</>
+  }
+
+  return values.map((tag) => (
+    <span
+      key={tag}
+      className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-[var(--text)]"
+    >
+      {tag}
+    </span>
+  ))
+}
+
 const Applications: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>(() => getApplications())
+  const [tarotCard, setTarotCard] = useState<TarotCard | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'light'
     return (window.localStorage.getItem('hire-me-plz.theme') as 'light' | 'dark') || 'light'
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Application['status'] | 'all'>('all')
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
+  const [sortField, setSortField] = useState<'title' | 'company' | 'status' | 'appliedDate' | 'deadline' | 'tags' | 'result'>('appliedDate')
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
   const [page, setPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<Application>(defaultFormState)
+  const [starCount, setStarCount] = useState<number | null>(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -61,6 +186,23 @@ const Applications: React.FC = () => {
       window.localStorage.setItem('hire-me-plz.theme', theme)
     }
   }, [theme])
+
+  useEffect(() => {
+    setTarotCard(selectRandomTarotCard())
+  }, [])
+
+  useEffect(() => {
+    const fetchStarCount = async () => {
+      try {
+        const response = await fetch('https://api.github.com/repos/tuantrinh0711/hire-me-plz')
+        const data = await response.json()
+        setStarCount(data.stargazers_count)
+      } catch {
+        // silently fail if API call fails
+      }
+    }
+    fetchStarCount()
+  }, [])
 
   const filteredApplications = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase()
@@ -76,11 +218,36 @@ const Applications: React.FC = () => {
         return matchesSearch && matchesStatus
       })
       .sort((a, b) => {
-        const aDate = dayjs(a.appliedDate)
-        const bDate = dayjs(b.appliedDate)
-        return sortOrder === 'desc' ? bDate.diff(aDate) : aDate.diff(bDate)
+        const getSortableValue = (application: Application) => {
+          if (sortField === 'appliedDate' || sortField === 'deadline') {
+            return dayjs(application[sortField] || '')
+          }
+          return String(application[sortField] || '').toLowerCase()
+        }
+
+        const aValue = getSortableValue(a)
+        const bValue = getSortableValue(b)
+
+        if (sortField === 'appliedDate' || sortField === 'deadline') {
+          const diff = (bValue as dayjs.Dayjs).diff(aValue as dayjs.Dayjs)
+          return sortDirection === 'desc' ? diff : -diff
+        }
+
+        if (aValue < bValue) return sortDirection === 'desc' ? 1 : -1
+        if (aValue > bValue) return sortDirection === 'desc' ? -1 : 1
+        return 0
       })
-  }, [applications, searchTerm, statusFilter, sortOrder])
+  }, [applications, searchTerm, statusFilter, sortField, sortDirection])
+
+  const handleSort = (field: 'title' | 'company' | 'status' | 'appliedDate' | 'deadline' | 'tags' | 'result') => {
+    if (field === sortField) {
+      setSortDirection((current) => (current === 'desc' ? 'asc' : 'desc'))
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+    setPage(1)
+  }
 
   const pages = Math.max(1, Math.ceil(filteredApplications.length / PAGE_SIZE))
   const pagedApplications = filteredApplications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -159,7 +326,16 @@ const Applications: React.FC = () => {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="https://github.com"
+                href="https://github.com/tuantrinh0711/hire-me-plz/stargazers"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition hover:-translate-y-0.5 hover:shadow-soft"
+              >
+                <span className="text-lg">⭐</span>
+                {starCount !== null ? `${starCount} Stars` : 'Star on GitHub'}
+              </a>
+              <a
+                href="https://github.com/tuantrinh0711/hire-me-plz"
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition hover:-translate-y-0.5 hover:shadow-soft"
@@ -179,47 +355,42 @@ const Applications: React.FC = () => {
           </div>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="space-y-6">
-            <div className="sketch-card overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-soft">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Your notebook</p>
-                  <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">Sketch Menu</h2>
-                </div>
-                <div className="grid h-11 w-11 place-items-center rounded-full bg-[var(--accent-2)]/15 text-[var(--accent-2)]">
-                  <span className="text-xl">✏️</span>
-                </div>
-              </div>
-              <nav className="mt-6 space-y-3">
-                <button className="menu-item" type="button" onClick={() => setPage(1)}>
-                  <span className="text-lg">📂</span>
-                  Applications
-                </button>
-                <button className="menu-item" type="button" onClick={() => openForm()}>
-                  <span className="text-lg">➕</span>
-                  Add Application
-                </button>
-                <button className="menu-item" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                  <span className="text-lg">ℹ️</span>
-                  About
-                </button>
-              </nav>
-            </div>
-
             <div className="sketch-card relative overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-soft">
               <div className="note-squiggle" />
               <div className="absolute -right-8 top-6 h-20 w-20 rounded-full bg-[var(--accent)]/10 blur-2xl" />
               <div className="relative z-10">
-                <p className="text-xs uppercase tracking-[0.3em] text-[var(--accent-2)]">Sticky note</p>
-                <p className="mt-4 text-lg font-semibold text-[var(--text)]">Keep drawing your next career move.</p>
-                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                  Every application is a new sketch. Review, refine, and keep your momentum flowing.
-                </p>
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--accent-2)]">Today's tarot card</p>
+                <p className="mt-4 text-lg font-semibold text-[var(--text)]">{tarotCard?.title}</p>
+                {tarotCard?.imageUrl && (
+                  <img
+                    src={tarotCard.imageUrl}
+                    alt={tarotCard.title}
+                    className="mt-3 w-full rounded-xl border border-[var(--border)] shadow-sm"
+                  />
+                )}
+                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{tarotCard?.meaning}</p>
+                <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                  <span className="text-base">{tarotCard?.applyEmoji}</span>
+                  <span>{tarotCard?.applyText}</span>
+                </div>
                 <div className="mt-5 rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--text)] shadow-soft">
-                  “Draft, submit, follow up — then repeat with confidence.”
+                  "{tarotCard?.quote}"
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
+                  <span>Occurrence rate</span>
+                  <span className="font-semibold">{tarotCard?.occurrence}%</span>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setTarotCard(selectRandomTarotCard())}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:-translate-y-0.5"
+              >
+                <span>🔮</span>
+                Shuffle tarot
+              </button>
             </div>
           </aside>
 
@@ -279,20 +450,6 @@ const Applications: React.FC = () => {
                     ))}
                   </select>
                 </label>
-                <label className="input-group">
-                  <span>Sort by date</span>
-                  <select
-                    value={sortOrder}
-                    onChange={(event) => {
-                      setSortOrder(event.target.value as 'desc' | 'asc')
-                      setPage(1)
-                    }}
-                    className="input-control"
-                  >
-                    <option value="desc">Newest first</option>
-                    <option value="asc">Oldest first</option>
-                  </select>
-                </label>
               </div>
             </section>
 
@@ -313,17 +470,80 @@ const Applications: React.FC = () => {
               </div>
 
               <div className="sketch-card overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-soft">
-                <div className="overflow-x-auto md:overflow-visible">
-                  <table className="w-full border-collapse text-left text-sm md:text-base">
+                <div className="hidden md:block overflow-x-auto md:overflow-visible">
+                  <table className="w-full min-w-[720px] border-collapse text-left text-sm md:text-base">
                     <thead className="border-b border-[var(--border)] text-[var(--muted)] uppercase tracking-[0.18em]">
                       <tr>
-                        <th className="px-4 py-4">Position</th>
-                        <th className="px-4 py-4">Company</th>
-                        <th className="px-4 py-4">Status</th>
-                        <th className="px-4 py-4">Applied</th>
-                        <th className="px-4 py-4">Deadline</th>
-                        <th className="px-4 py-4">Tags</th>
-                        <th className="px-4 py-4">Result</th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('title')}
+                          >
+                            Position
+                            <span className="text-lg">{sortField === 'title' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('company')}
+                          >
+                            Company
+                            <span className="text-lg">{sortField === 'company' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('status')}
+                          >
+                            Status
+                            <span className="text-lg">{sortField === 'status' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('appliedDate')}
+                          >
+                            Applied
+                            <span className="text-lg">{sortField === 'appliedDate' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('deadline')}
+                          >
+                            Deadline
+                            <span className="text-lg">{sortField === 'deadline' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('tags')}
+                          >
+                            Tags
+                            <span className="text-lg">{sortField === 'tags' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 text-left font-semibold"
+                            onClick={() => handleSort('result')}
+                          >
+                            Result
+                            <span className="text-lg">{sortField === 'result' ? (sortDirection === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </button>
+                        </th>
                         <th className="px-4 py-4">Actions</th>
                       </tr>
                     </thead>
@@ -344,7 +564,11 @@ const Applications: React.FC = () => {
                           </td>
                           <td className="px-4 py-4 text-[var(--muted)]">{application.appliedDate}</td>
                           <td className="px-4 py-4 text-[var(--muted)]">{application.deadline || '—'}</td>
-                          <td className="px-4 py-4 text-[var(--muted)]">{application.tags || '—'}</td>
+                          <td className="px-4 py-4">
+                            <div className="flex flex-wrap gap-2">
+                              {renderTagBadges(application.tags)}
+                            </div>
+                          </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex rounded-full border px-3 py-1 text-[0.75rem] font-semibold ${resultPalette[application.result]}`}>
                               {application.result.charAt(0).toUpperCase() + application.result.slice(1)}
@@ -394,7 +618,12 @@ const Applications: React.FC = () => {
                       <div className="mt-3 grid gap-2 text-sm text-[var(--muted)]">
                         <div>Applied: {application.appliedDate}</div>
                         <div>Deadline: {application.deadline || '—'}</div>
-                        <div>Tags: {application.tags || '—'}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>Tags:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {renderTagBadges(application.tags)}
+                          </div>
+                        </div>
                         <div>Result: {application.result}</div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
